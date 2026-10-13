@@ -1,0 +1,31 @@
+# 离线自检：不连数据库、不需要达梦 JDBC 驱动、不需要 JDK。
+#
+# 为什么这样就够：`tools/smoke.mjs` 覆盖插件契约、检查项目录与 DESIGN §4 表格的一致性、
+# 等保级别与条款级符合性、主机侧命令白名单与掩码、报告结构（含目录断链）、以及**禁止真机口令入库**的守卫；
+# 真机相关部分（`tools/plugin-e2e.mjs` / `live-assess.mjs`）需要真实达梦环境与凭据，**不在 CI 里跑**。
+name: smoke
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      # 不装依赖：`@deepseek-ai/dsh-tools` 是 peer（由宿主提供）。缺依赖时 `smoke.mjs` 会自己写一个
+      # 最小桩（只在确实没装时写，且 node_modules 不入库），所以自检**零依赖可跑**。
+      - name: Run offline smoke tests
+        run: node tools/smoke.mjs
+      - name: Generate demo report (offline, must succeed)
+        run: node tools/catalog.mjs demo-report "${{ runner.temp }}/dm-security-reports"

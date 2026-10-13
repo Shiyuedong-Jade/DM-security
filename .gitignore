@@ -1,0 +1,20 @@
+# 开发期产物与本地环境，不入库
+node_modules/
+.dm-home/
+reports/
+*.log
+
+# 评估报告（含真实库的主机名 / 账号 / 路径与实测发现，默认不提交）
+dm-security-reports/
+
+# 达梦 JDBC 驱动与编译产物（商业组件，按许可不得再分发；由使用者自行放置）
+*.jar
+*.class
+classes/
+runtime/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

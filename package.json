@@ -1,0 +1,68 @@
+{
+  "name": "dsh-plugin-dm-security",
+  "version": "1.0.0",
+  "private": true,
+  "description": "达梦 DM8 数据库安全评估插件：注册 dm_security_assess 工具，执行 13 个域 60 项只读检查（53 项库内 + 7 项主机侧 OS/SSH，主机侧需要额外提供 SSH 访问），给出六态结论（严重/警告/提示/合规/不适用/未取到）与等保 2.0（GB/T 22239-2019）控制点对照（级别可选，含条款级符合性），生成零依赖、零脚本的单文件 HTML 报告。只读设计：不改配置、不试默认口令、不采集口令散列。",
+  "type": "module",
+  "license": "MIT",
+  "author": "Shiyuedong-Jade",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Shiyuedong-Jade/DM-security.git"
+  },
+  "homepage": "https://github.com/Shiyuedong-Jade/DM-security#readme",
+  "bugs": {
+    "url": "https://github.com/Shiyuedong-Jade/DM-security/issues"
+  },
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "lib",
+    "assets",
+    "tools",
+    "cordis.patch.yml",
+    "DESIGN.md",
+    "README.md",
+    "SECURITY.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "smoke": "node tools/smoke.mjs",
+    "e2e": "node tools/plugin-e2e.mjs",
+    "catalog": "node tools/catalog.mjs",
+    "live": "node tools/live-assess.mjs",
+    "demo-report": "node tools/catalog.mjs demo-report"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "^4.0.1",
+    "@deepseek-ai/dsh-tools": "^0.1.5-rc.2"
+  },
+  "keywords": [
+    "deepseek",
+    "harness",
+    "dsh",
+    "dsh-plugin",
+    "dm8",
+    "dameng",
+    "达梦",
+    "security",
+    "数据库安全",
+    "安全评估",
+    "等保",
+    "compliance",
+    "read-only"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

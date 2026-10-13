@@ -1,0 +1,13 @@
+# 统一换行符：仓库内一律 LF，避免 Windows 检出后整文件 diff
+* text=auto eol=lf
+
+# 二进制/生成物（不该被当作文本处理）
+*.jar binary
+*.class binary
+*.png binary
+*.jpg binary
+*.pdf binary
+
+# GitHub 语言统计：这些是文档/数据，不算代码
+*.md linguist-documentation
+DESIGN.md linguist-documentation
