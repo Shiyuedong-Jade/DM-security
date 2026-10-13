@@ -25,6 +25,7 @@
     "assets",
     "tools",
     "cordis.patch.yml",
+    "screenshots.json",
     "DESIGN.md",
     "README.md",
     "SECURITY.md",
@@ -39,11 +40,12 @@
     "e2e": "node tools/plugin-e2e.mjs",
     "catalog": "node tools/catalog.mjs",
     "live": "node tools/live-assess.mjs",
-    "demo-report": "node tools/catalog.mjs demo-report"
+    "demo-report": "node tools/catalog.mjs demo-report",
+    "shots": "node tools/shots.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-tools": "^0.1.5-rc.2"
+    "@deepseek-ai/dsh-tools": ">=0.1.0-rc.1 <0.2.0-0 || >=0.1.5-rc.1 <0.2.0-0"
   },
   "keywords": [
     "deepseek",

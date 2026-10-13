@@ -2,7 +2,7 @@
  * 离线命令行工具（不需要 DSH、不连库）。
  *
  * 用法：
- *   node tools/catalog.mjs                              列出 53 项检查项目录
+ *   node tools/catalog.mjs                              列出 60 项检查项目录
  *   node tools/catalog.mjs demo-report                  用内置演示数据生成一份 HTML 报告
  *   node tools/catalog.mjs demo-report <输出目录>
  *   node tools/catalog.mjs [catalog|demo-report] --level 2|3|4    切换等保对照级别（默认 3）

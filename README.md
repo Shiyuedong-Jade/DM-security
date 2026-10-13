@@ -212,6 +212,7 @@ dsh plugin --profile web remove dsh-plugin-dm-security
 ```
 ├── package.json          插件清单
 ├── cordis.patch.yml      作为 bundle 的插入清单
+├── screenshots.json      报告截图清单（插件市场详情页用）
 ├── DESIGN.md             设计基线：判定口径、真机校准记录、待核实清单
 ├── SECURITY.md           只读边界、口令与凭据取舍、漏洞上报
 ├── CHANGELOG.md          变更记录
@@ -229,6 +230,7 @@ dsh plugin --profile web remove dsh-plugin-dm-security
 │   └── drivers/          jdbc 与 demo 两种采集驱动
 ├── assets/java/
 │   └── DmQuery.java      JDBC 桥接器源码
+├── assets/screenshot-*.png  报告截图，由 tools/shots.mjs 生成
 ├── .github/workflows/
 │   └── ci.yml            离线自检与演示报告生成
 └── tools/                开发与自检脚本
@@ -237,10 +239,11 @@ dsh plugin --profile web remove dsh-plugin-dm-security
 ## 开发
 
 ```sh
-node tools/smoke.mjs                                      # 离线自检，204 项断言，不连库、不需要驱动
+node tools/smoke.mjs                                      # 离线自检，206 项断言，不连库、不需要驱动
 node tools/plugin-e2e.mjs                                 # 插件工具入口端到端，走生产代码路径
 node tools/catalog.mjs                                    # 列出检查项目录，可加 --level 2|3|4
 node tools/catalog.mjs demo-report                        # 用内置样例数据生成 HTML 报告
+node tools/shots.mjs                                      # 重新生成 assets/ 下的报告截图（需要本机有 Edge / Chrome）
 node tools/live-assess.mjs 10.0.0.40:5236 --user appuser \
   --secret-file <口令文件>                                 # 连真实库评估一次，并打印每条查询的真实列名
 node tools/plugin-e2e.mjs --targets "h1:7236,h2:7237" --user sysdba \
