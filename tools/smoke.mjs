@@ -438,6 +438,12 @@ ok(html.includes('要求（摘要）'), '等保对照表带「要求」列');
   ok(html.includes(':target{') && html.includes('scroll-behavior:smooth'), '锚点跳转有平滑滚动与目标高亮（纯 CSS，无脚本）');
   ok(html.includes('id="d-ident"') && /id="c-8_1_4_1"/.test(html), '目录子条目锚点覆盖分域与等保章条');
 }
+// 报告是 HTML，不是 Markdown：直接拼进 HTML 的说明文字里若带 `**粗体**`，页面上会原样显示星号。
+// 这个缺陷只在截图里看得出来（自检不看渲染结果），所以用断言兜住。
+{
+  const leaks = [...html.matchAll(/\*\*[^*\n]{1,60}\*\*/g)].map((m) => m[0]);
+  ok(leaks.length === 0, `报告 HTML 里不残留 Markdown 粗体标记（残留：${[...new Set(leaks)].join('、') || '无'}）`);
+}
 // 条款级符合性：表里有「符合性」列 + 看板 + 判法说明（用户直接问的就是「这条要求满足没有」）
 ok(html.includes('>符合性<') && /class="confchip (pass|partial|fail|na|pending)"/.test(html), '等保对照表带「符合性」列与条款级 chip');
 ok(html.includes('符合性是怎么判的') && html.includes('不构成合规证据'), '报告写明符合性的判定规则（含「提示不构成证据」）');
