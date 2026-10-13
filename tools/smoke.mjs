@@ -45,6 +45,8 @@ const read = (p) => fs.readFileSync(p, 'utf8');
  * 于是**自检本身跑不起来**。这里只在「确实没装」时写一个最小桩（`defineTool = (t) => t`），
  * 让 `node tools/smoke.mjs` 在任何环境都能验证 195 项断言；装了真依赖时**完全不碰**。
  */
+/** 本次是否用了桩：决定「编译后参数」那几条断言怎么验（见 §1 的说明）。 */
+let DEP_STUBBED = false;
 {
   const dep = path.join(PKG, 'node_modules', '@deepseek-ai', 'dsh-tools');
   if (!fs.existsSync(path.join(dep, 'package.json'))) {
@@ -54,6 +56,7 @@ const read = (p) => fs.readFileSync(p, 'utf8');
       JSON.stringify({ name: '@deepseek-ai/dsh-tools', version: '0.0.0-stub', type: 'module', main: 'index.js' }, null, 2),
     );
     fs.writeFileSync(path.join(dep, 'index.js'), '// 自检用最小桩（仅缺依赖时生成）\nexport const defineTool = (t) => t;\n');
+    DEP_STUBBED = true;
     console.log('  [信息] 未检测到 @deepseek-ai/dsh-tools，已写入最小桩（仅本次自检使用，node_modules 不入库）');
   }
 }
@@ -146,12 +149,30 @@ if (plugin) {
   const p = registered?.parameters;
   const isRequired = (schema, name) =>
     Array.isArray(schema?.required) ? schema.required.includes(name) : schema?.properties?.[name]?.required === true;
-  ok(p?.type === 'object', '编译后参数是 object');
-  ok(isRequired(p, 'action'), 'action 为必填（编译后 required 数组含 action）');
-  ok(
-    Array.isArray(p?.properties?.action?.enum) && p.properties.action.enum.join() === 'assess,report,list',
-    'action 允许 assess / report / list',
-  );
+  /**
+   * ★ CI 抓到的坑（2026-10-13，第一次 push 后 run #1 失败）：
+   *   这三条断言验的是**真实 `defineTool` 把参数 DSL 编译成 JSON Schema** 的产物，
+   *   而干净检出/CI 里没有 `@deepseek-ai/dsh-tools`（peer，由宿主提供），用的是本文件上面的最小桩
+   *   `defineTool = (t) => t` —— 桩不编译，于是这三条必红（本地装了依赖所以一直是绿的）。
+   *   修法：装了真依赖 → 照旧验编译产物；只有桩 → 改为验**我们自己声明的 DSL 形状**
+   *   （`action.required` / `action.enum` / `level.type` 都是我们写的，任何环境都该成立）。
+   */
+  if (DEP_STUBBED) {
+    console.log('  [信息] 未安装 @deepseek-ai/dsh-tools（CI / 干净检出）：跳过「编译后参数」断言，改验声明的 DSL 形状');
+    ok(p?.action?.required === true, 'DSL：action 声明为必填');
+    ok(
+      Array.isArray(p?.action?.enum) && p.action.enum.join() === 'assess,report,list',
+      'DSL：action 允许 assess / report / list',
+    );
+    ok(p?.level?.type === 'integer', 'DSL：level 声明为 integer（等保对照级别）');
+  } else {
+    ok(p?.type === 'object', '编译后参数是 object');
+    ok(isRequired(p, 'action'), 'action 为必填（编译后 required 数组含 action）');
+    ok(
+      Array.isArray(p?.properties?.action?.enum) && p.properties.action.enum.join() === 'assess,report,list',
+      'action 允许 assess / report / list',
+    );
+  }
   const os = registered?.output?.schema;
   ok(os?.type === 'object' && os?.additionalProperties === false, '输出 schema 显式 object + additionalProperties: false');
   ok(['action', 'text'].every((k) => isRequired(os, k)), '输出 schema 核心字段 required（action / text）');

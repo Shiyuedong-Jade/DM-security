@@ -1,9 +1,12 @@
 # 达梦数据库安全评估插件（`dsh-plugin-dm-security`）
 
-> 把「这台 DM8 的安全配置到底合不合规、风险在哪」变成一份**只读、带证据、可追溯**的结论。
-> 13 个域 / 60 项检查（53 项库内 + **7 项主机侧 OS/SSH**）/ 六态结论 / 等保 2.0 控制点对照（**二 / 三 / 四级可选，默认三级**，含要求摘要）/ 单文件 HTML 报告。
+[![smoke](https://github.com/Shiyuedong-Jade/DM-security/actions/workflows/ci.yml/badge.svg)](https://github.com/Shiyuedong-Jade/DM-security/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-配套文档：`DESIGN.md`（设计基线、判定口径、待核实清单）。
+> 把「这台 DM8 的安全配置到底合不合规、风险在哪」变成一份**只读、带证据、可追溯**的结论。
+> 13 个域 / 60 项检查（53 项库内 + **7 项主机侧 OS/SSH**）/ 六态结论 / 等保 2.0 控制点对照（**二 / 三 / 四级可选，默认三级**，含要求摘要）/ 单文件 HTML 报告（零脚本、零外链）。
+
+配套文档：`DESIGN.md`（设计基线、判定口径、待核实清单）、`SECURITY.md`（只读边界与凭据取舍）。
 
 ---
 
