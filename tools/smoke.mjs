@@ -719,6 +719,14 @@ ok(
   '节点覆盖度不足时给出明确警告（未检查的节点漂移不会被发现）',
 );
 
+// ============================================================ 7. 文档语气（离线）
+console.log('\n=== 7. 文档语气自检（离线）===');
+const tone = await import(pathToFileURL(path.join(HERE, 'doc-tone.mjs')).href);
+const toneHits = tone.scanDocs();
+const mechHits = toneHits.filter((h) => tone.PATTERNS.find((p) => p.key === h.key)?.mechanical);
+ok(mechHits.length === 0, `零容忍语气痕迹为 0 处（破折号 / 翻案句 / 起手式 / 提示语冒号 / emoji / 徽章）`);
+if (mechHits.length) for (const h of mechHits) console.log(`      ${h.file}:${h.line} [${h.label}] ${h.text}`);
+
 // ============================================================ 汇总
 console.log(`\n=== 自检汇总：通过 ${passed} 项，失败 ${failed} 项 ===`);
 if (failed > 0) {
