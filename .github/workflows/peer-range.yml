@@ -1,0 +1,24 @@
+# peer 范围巡检：宿主发新版本元组时，`peerDependencies` 里的枚举会**静默失效**
+# （预发布版本的放行规则见 DESIGN §3.1），而失效时不会有任何报错，只会让用户看到 peer 告警。
+#
+# 这个作业每周拉一次 registry，把声明的范围和已发布的每个版本比一遍，漏了就让作业红。
+# 否则只能靠人记得手动跑 `node tools/peer-range.mjs`，那等于没有。
+#
+# 故意与 ci.yml 分开：那条流程保持**离线**，不受出网抖动影响；这条需要联网，只在定时与手动时跑。
+name: peer-range
+
+on:
+  schedule:
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+jobs:
+  peer-range:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: 核对 peer 范围是否仍覆盖 registry 上已发布的版本
+        run: node tools/peer-range.mjs

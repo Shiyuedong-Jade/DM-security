@@ -232,18 +232,20 @@ dsh plugin --profile web remove dsh-plugin-dm-security
 │   └── DmQuery.java      JDBC 桥接器源码
 ├── assets/screenshot-*.png  报告截图，由 tools/shots.mjs 生成
 ├── .github/workflows/
-│   └── ci.yml            离线自检与演示报告生成
+│   ├── ci.yml            离线自检与演示报告生成
+│   └── peer-range.yml    每周核对 peer 范围是否落后于 registry（需联网）
 └── tools/                开发与自检脚本
 ```
 
 ## 开发
 
 ```sh
-node tools/smoke.mjs                                      # 离线自检，206 项断言，不连库、不需要驱动
+node tools/smoke.mjs                                      # 离线自检，214 项断言，不连库、不需要驱动
 node tools/plugin-e2e.mjs                                 # 插件工具入口端到端，走生产代码路径
 node tools/catalog.mjs                                    # 列出检查项目录，可加 --level 2|3|4
 node tools/catalog.mjs demo-report                        # 用内置样例数据生成 HTML 报告
 node tools/shots.mjs                                      # 重新生成 assets/ 下的报告截图（需要本机有 Edge / Chrome）
+node tools/peer-range.mjs                                 # 核对 peer 范围是否还覆盖 registry 上已发布的版本（需联网）
 node tools/live-assess.mjs 10.0.0.40:5236 --user appuser \
   --secret-file <口令文件>                                 # 连真实库评估一次，并打印每条查询的真实列名
 node tools/plugin-e2e.mjs --targets "h1:7236,h2:7237" --user sysdba \
@@ -252,6 +254,10 @@ node tools/plugin-e2e.mjs --targets "h1:7236,h2:7237" --user sysdba \
 ```
 
 口令只从 `--secret-file` 或 `--secret-env` 指定的环境变量读，不进命令行。
+
+改 `peerDependencies` 后请跑一次 `tools/peer-range.mjs`：它会拉 registry 上
+`@deepseek-ai/*` 的全部已发布版本，逐个核对声明的范围有没有漏。预发布版本的放行规则很绕
+（`*` 一个预发布都不匹配），手写范围漏掉新元组时不会有任何报错，只会让用户看到 peer 告警。
 
 ## 许可证
 

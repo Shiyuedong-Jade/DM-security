@@ -41,11 +41,12 @@
     "catalog": "node tools/catalog.mjs",
     "live": "node tools/live-assess.mjs",
     "demo-report": "node tools/catalog.mjs demo-report",
-    "shots": "node tools/shots.mjs"
+    "shots": "node tools/shots.mjs",
+    "peer-range": "node tools/peer-range.mjs"
   },
   "peerDependencies": {
-    "@deepseek-ai/cordis": "^4.0.1",
-    "@deepseek-ai/dsh-tools": ">=0.1.0-rc.1 <0.2.0-0 || >=0.1.5-rc.1 <0.2.0-0"
+    "@deepseek-ai/cordis": ">=4.0.1-0 <4.1.0-0 || >=4.0.5-0 <4.1.0-0",
+    "@deepseek-ai/dsh-tools": ">=0.1.0-0 <0.2.0-0 || >=0.1.1-0 <0.2.0-0 || >=0.1.2-0 <0.2.0-0 || >=0.1.3-0 <0.2.0-0 || >=0.1.4-0 <0.2.0-0 || >=0.1.5-0 <0.2.0-0 || >=0.1.6-0 <0.2.0-0 || >=0.1.7-0 <0.2.0-0"
   },
   "keywords": [
     "deepseek",

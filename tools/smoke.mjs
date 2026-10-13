@@ -725,8 +725,27 @@ ok(
   '节点覆盖度不足时给出明确警告（未检查的节点漂移不会被发现）',
 );
 
-// ============================================================ 7. 文档语气（离线）
-console.log('\n=== 7. 文档语气自检（离线）===');
+// ============================================================ 7. peer 范围（离线）
+console.log('\n=== 7. 宿主依赖声明（离线）===');
+// 预发布版本的放行规则很容易写错（`*` 连一个预发布都不匹配），这里把关键语义锁住。
+// registry 上是否又发了新元组，由 tools/peer-range.mjs 联网查，不进本自检。
+{
+  const pr = await import(pathToFileURL(path.join(HERE, 'peer-range.mjs')).href);
+  ok(pr.selfTest(true), `semver 子集语义自证（${pr.SEMVER_CASES.length} 条用例）`);
+  const pkgJson = JSON.parse(fs.readFileSync(path.join(PKG, 'package.json'), 'utf8'));
+  const tools = pkgJson.peerDependencies?.['@deepseek-ai/dsh-tools'] ?? '';
+  const cordis = pkgJson.peerDependencies?.['@deepseek-ai/cordis'] ?? '';
+  ok(!pkgJson.dependencies || Object.keys(pkgJson.dependencies).length === 0, '官方 @deepseek-ai/* 不放在 dependencies（宿主提供）');
+  ok(pr.satisfies('0.1.5-rc.2', tools), 'peer 范围放行本机宿主在跑的 dsh-tools 0.1.5-rc.2');
+  ok(pr.satisfies('0.1.7-rc.2', tools), 'peer 范围放行当前线 0.1.7-rc.2（枚举 0.1.x 各元组的目的）');
+  ok(pr.satisfies('0.1.0-rc.6', tools), 'peer 范围放行社区文档点名的反例 0.1.0-rc.6');
+  ok(!pr.satisfies('0.2.0-rc.2', tools), 'peer 范围不谎称支持 0.2 线（没测过就不声明）');
+  ok(!pr.satisfies('0.1.7-rc.2', '^0.1.5-rc.2'), '反例：单分支写法够不到 0.1.7（说明为什么要枚举）');
+  ok(pr.satisfies('4.0.2', cordis) && pr.satisfies('4.0.1-rc.1', cordis), 'cordis 范围覆盖稳定版与同线预发布');
+}
+
+// ============================================================ 8. 文档语气（离线）
+console.log('\n=== 8. 文档语气自检（离线）===');
 const tone = await import(pathToFileURL(path.join(HERE, 'doc-tone.mjs')).href);
 const toneHits = tone.scanDocs();
 const mechHits = toneHits.filter((h) => tone.PATTERNS.find((p) => p.key === h.key)?.mechanical);
