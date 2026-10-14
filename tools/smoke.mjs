@@ -634,6 +634,19 @@ ok(osMod.parseProc(procLine)[0]?.user === 'dmdba', 'parseProc 取到运行账号
 ok(osMod.parseProc(procLine)[0]?.iniPath === '/home/dmdba/dmdbms/data/DAMENG/dm.ini', 'parseProc 取到 dm.ini 路径');
 ok(osMod.parseStat('750 dmdba:dinstall /home/dmdba/dmdbms')[0]?.mode === '750', 'parseStat 取到权限与属主');
 ok(osMod.parseListen('LISTEN 0 128 0.0.0.0:7236 0.0.0.0:*')[0]?.port === 7236, 'parseListen 取到监听地址与端口');
+// ★ 监听探测加 `-p` 取进程名：DMDSC 上一台主机同时有好几个达梦服务在听，
+//   没有进程名就只能判数据库端口，集群特有的那几个端（dmcss / dmasmsvrm / dmap）全会漏掉。
+ok(osMod.procOfListenLine('LISTEN 0 128 *:7236 *:* users:(("dmserver",pid=4094,fd=4))') === 'dmserver', 'procOfListenLine 认 `ss -lntp` 的进程名');
+ok(osMod.procOfListenLine('tcp 0 0 0.0.0.0:22 0.0.0.0:* LISTEN 1586/sshd') === 'sshd', 'procOfListenLine 也认 `netstat -lntp` 的 `pid/name` 形态');
+ok(osMod.procOfListenLine('LISTEN 0 128 0.0.0.0:7237 0.0.0.0:*') === null, '拿不到进程名 → null（调用方必须能退回「只判端口」）');
+{
+  const L = osMod.parseListen(
+    'LISTEN 0 128 *:7236 *:* users:(("dmserver",pid=4094,fd=4))\n' +
+      'LISTEN 0 128 *:7936 *:* users:(("dmcss",pid=3881,fd=11))',
+  );
+  ok(L.length === 2 && L[0].proc === 'dmserver' && L[1].proc === 'dmcss', 'parseListen 同时给出地址、端口与进程名');
+  ok(osMod.OS_PROBE.listen.build().includes('ss -lntp'), '★ 监听探测命令带 `-p`（否则拿不到进程名，DMDSC 上等于白收）');
+}
 ok(osMod.parseSshd('PermitRootLogin no').permitrootlogin === 'no', 'parseSshd 解析 sshd_config 的键值行');
 ok(osMod.parseAuditFiles('2024-06-30 2048 /a/audit/x.aud').length === 1, 'parseAuditFiles 解析审计文件清单');
 ok(
@@ -669,6 +682,38 @@ ok(gGood['os.sshd_baseline'] === 'info', '只允许口令认证 → 判「提示
 ok(gGood['os.plaintext_credential'] === 'ok', '明文口令扫描「跑完但没命中」→ 判「合规」（不是「未取到」）');
 const osNoScan = { ...osGood, facts: { ...osGood.facts, exit: { ...osGood.facts.exit, history: 127, plaintext: 127 } } };
 ok(lvOf(runChecks(data, { os: osNoScan }))['os.plaintext_credential'] === 'unknown', '扫描命令没跑起来（exit=127）→ 才判「未取到」');
+
+// ★ DMDSC：一台主机上不止一个达梦服务在听，判定不能再只看数据库端口。
+//   真机实测 10.0.0.61：7236/7336 dmserver、7436/7536 dmasmsvrm、7936 dmcss、4236 dmap，全部绑 `*`，
+//   旧实现一条都不判 —— 而 8.1.4.4(b)「关闭不需要的服务与高危端口」正是要管这些。
+{
+  const dscListen = [
+    { addr: '*', port: 7236, proc: 'dmserver' },
+    { addr: '*', port: 7936, proc: 'dmcss' },
+    { addr: '*', port: 7436, proc: 'dmasmsvrm' },
+  ];
+  const osDsc = { ...osGood, facts: { ...osGood.facts, listen: dscListen } };
+  const rDsc = runChecks(data, { os: osDsc }).results.find((r) => r.id === 'os.listen_binding');
+  ok(rDsc.level === 'warn', '★ DMDSC：dmcss / dmasmsvrm 等达梦服务端口一并纳入「监听绑定」判定');
+  ok(/dmcss/.test(rDsc.message) && /dmasmsvrm/.test(rDsc.message), '并在文案里点名是哪几个服务与端口');
+  ok(/DMDSC 集群同步/.test(rDsc.message), '并说明各端口的角色（dmcss = DMDSC 集群同步）');
+  const tight = {
+    ...osDsc,
+    facts: {
+      ...osDsc.facts,
+      listen: [
+        { addr: '10.0.0.61', port: 7236, proc: 'dmserver' },
+        { addr: '10.0.0.61', port: 7936, proc: 'dmcss' },
+      ],
+    },
+  };
+  ok(runChecks(data, { os: tight }).results.find((r) => r.id === 'os.listen_binding').level === 'ok', '达梦各服务都绑在具体地址 → 判合规');
+  // 拿不到进程名（非 root）时退回旧行为：只判数据库端口，且不再写死 5236
+  const noProc = { ...osGood, facts: { ...osGood.facts, listen: [{ addr: '*', port: Number(osGood.facts.dbPort) || 7236 }] } };
+  const rNoProc = runChecks(data, { os: noProc }).results.find((r) => r.id === 'os.listen_binding');
+  ok(rNoProc.level === 'warn' && /实例端口/.test(rNoProc.message), '拿不到进程名时退回「只判数据库端口」（旧行为不变）');
+  ok(!/5236/.test(rNoProc.message), '★ 建议文案里不再写死 5236（真机端口是 7236，写死会指错）');
+}
 ok(/200/.test(osMod.OS_PROBE.history.build('/home/x')), '历史扫描上限放宽到 200（真机上 41 条曾被 tail -20 低报成 20）');
 
 // ⑥ 三态之二/之三：SSH 失败分支（注入假的 run：不需要真机，也不做任何真实登录尝试）
@@ -728,6 +773,28 @@ ok(
     .nodes.every((n) => n.hostKey === FP_ED),
   '只给一个指纹时所有节点都用它（既有行为不变）',
 );
+// ★ SSH 账号与口令也支持逐节点（DMDSC 上两节点的运维口令未必相同）。
+//   口令必须走 `byWhitespace:false`：口令里可以有空格，按空白切会切坏，
+//   而切坏后的现象与"口令错"一模一样 —— 与主机密钥那一处是同一类错误。
+{
+  const sc = plugin.sshConfigOf({
+    args: { sshHost: '10.0.0.1,10.0.0.2', sshUser: 'root,admin', sshPassword: 'p w1,p w2' },
+    cfg: {},
+    targets: [{ label: 'a', host: '10.0.0.1' }, { label: 'b', host: '10.0.0.2' }],
+  });
+  ok(sc.nodes[0].user === 'root' && sc.nodes[1].user === 'admin', '★ sshUser 支持逐节点（逗号列表，与 targets 同序）');
+  ok(sc.nodes[0].password === 'p w1' && sc.nodes[1].password === 'p w2', '★ sshPassword 逐节点，且**口令里的空格原样保留**');
+  const one = plugin.sshConfigOf({
+    args: { sshUser: 'root', sshPassword: 'p' },
+    cfg: {},
+    targets: [{ label: 'a', host: 'h1' }, { label: 'b', host: 'h2' }],
+  });
+  ok(one.nodes.every((n) => n.user === 'root' && n.password === 'p'), '只给一个账号/口令时所有节点共用（既有行为不变）');
+  ok(
+    plugin.sshConfigOf({ args: { sshUser: 'root' }, cfg: {}, targets: [{ label: 'a', host: 'h1' }] }) === null,
+    '只给账号不给口令 → 不做主机侧采集（口径不变）',
+  );
+}
 
 // ⑦ 报告里主机侧的呈现
 const htmlOs = buildReportHtml({

@@ -96,7 +96,7 @@ dsh plugin --profile web add file:/path/to/dsh-plugin-dm-security
 | `password` | string | — | 数据库口令。会写入会话日志，建议改用设置卡片或凭据库 |
 | `privs` | string | 自动判定 | 连接账号具备的权限层。账号是 `SYSDBA` 或持有 `DBA` 角色时按 SYSDBA 处理 |
 | `level` | integer | `3` | 等保对照级别，2 / 3 / 4 |
-| `sshUser` / `sshPassword` | string | — | 主机侧检查的 SSH 账号与口令。两者都填才会执行主机侧检查 |
+| `sshUser` / `sshPassword` | string | — | 主机侧检查的 SSH 账号与口令。两者都填才会执行主机侧检查。多节点用逗号分隔且与 `targets` 同序（两节点的运维账号/口令未必相同），只给一个值时所有节点共用；这一项不按空格拆分（口令里可以有空格） |
 | `sshHost` | string | 各目标自身主机 | SSH 目标主机，逗号分隔且与 `targets` 同序 |
 | `sshPort` | integer | `22` | SSH 端口 |
 | `sshHostKey` | string | — | 主机密钥指纹，逗号分隔且与 `targets` 同序。plink 在 `-batch` 模式下要求密钥已知 |
