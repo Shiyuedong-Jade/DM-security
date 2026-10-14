@@ -684,6 +684,51 @@ ok(
   'SSH 失败时主机侧 7 项判「未取到」（绝不谎报成没问题）',
 );
 
+// ⑥b 主机密钥**不能被空白切分**（真机实测 2026-10-14，`10.0.0.40`）
+//
+// `sshConfigOf` 原来对**所有**逐节点参数都用同一个 `/[\s,;]+/` 切分。而 SSH 主机密钥指纹
+// 本身含空格（`ssh-ed25519 255 SHA256:…`）—— 于是一个指纹被拆成三段，调用方取 `list[0]`
+// 正好拿到 `ssh-ed25519`，plink 报
+//   `'ssh-ed25519' is not a valid format for a manual host key specification`
+// 主机侧 7 项全部落成「未取到」，而报告只说"SSH 连接失败"，看不出根因是切分切坏的。
+// 而那个带空格的格式，**正是本插件参数说明与提示文案让用户填的那个**。
+// 真机另验：Node 把完整字符串原样交给 plink 时两种格式都收 —— 问题只在这一处切分。
+// 指纹用**构造值**（不进真机公钥）—— 这一条测的是"空格不被切坏"，与具体指纹无关。
+const FP_ED = 'ssh-ed25519 255 SHA256:AAAABBBBCCCCDDDDEEEEFFFFGGGGHHHHIIIIJJJJKKK';
+const FP_BARE = 'SHA256:LLLLMMMMNNNNOOOOPPPPQQQQRRRRSSSSTTTTUUUUVVV';
+const utilMod = await import(pathToFileURL(path.join(PKG, 'lib', 'util.js')).href);
+ok(utilMod.splitNodeList(FP_ED).length === 3, 'splitNodeList 默认按空白切 —— 正是它会把一个指纹拆成三段（主机密钥因此不能走默认）');
+ok(
+  utilMod.splitNodeList(FP_ED, { byWhitespace: false }).length === 1 &&
+    utilMod.splitNodeList(FP_ED, { byWhitespace: false })[0] === FP_ED,
+  '★ splitNodeList 关闭空白切分后，带空格的指纹**原样**是一个值',
+);
+const sshOne = plugin.sshConfigOf({
+  args: { sshUser: 'root', sshPassword: 'p', sshHostKey: FP_ED },
+  cfg: {},
+  targets: [{ label: 'a', host: '10.0.0.1' }],
+});
+ok(sshOne.nodes[0].hostKey === FP_ED, '★ sshConfigOf：单节点时主机密钥**完整保留**（修复前会变成 "ssh-ed25519"）');
+const sshMulti = plugin.sshConfigOf({
+  args: { sshUser: 'root', sshPassword: 'p', sshHost: '10.0.0.1,10.0.0.2', sshHostKey: `${FP_ED},${FP_BARE}` },
+  cfg: {},
+  targets: [{ label: 'a', host: '10.0.0.1' }, { label: 'b', host: '10.0.0.2' }],
+});
+ok(
+  sshMulti.nodes.length === 2 && sshMulti.nodes[0].hostKey === FP_ED && sshMulti.nodes[1].hostKey === FP_BARE,
+  '★ sshConfigOf：多节点主机密钥用**逗号**分隔并逐节点保留（DMDSC 上两节点指纹本就不同）',
+);
+ok(
+  sshMulti.nodes[0].host === '10.0.0.1' && sshMulti.nodes[1].host === '10.0.0.2',
+  '主机名仍按逗号/空格拆分（只有主机密钥改了口径，既有行为不变）',
+);
+ok(
+  plugin
+    .sshConfigOf({ args: { sshUser: 'u', sshPassword: 'p', sshHostKey: FP_ED }, cfg: {}, targets: [{ label: 'a', host: 'h1' }, { label: 'b', host: 'h2' }] })
+    .nodes.every((n) => n.hostKey === FP_ED),
+  '只给一个指纹时所有节点都用它（既有行为不变）',
+);
+
 // ⑦ 报告里主机侧的呈现
 const htmlOs = buildReportHtml({
   meta: { ...meta, osAccess: '已启用（只读白名单命令）' },
