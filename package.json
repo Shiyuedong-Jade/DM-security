@@ -1,6 +1,6 @@
 {
   "name": "dsh-plugin-dm-security",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "达梦 DM8 数据库安全评估插件：注册 dm_security_assess 工具，执行 13 个域 60 项只读检查（53 项库内 + 7 项主机侧 OS/SSH，主机侧需要额外提供 SSH 访问），给出六态结论（严重/警告/提示/合规/不适用/未取到）与等保 2.0（GB/T 22239-2019）控制点对照（级别可选，含条款级符合性），生成零依赖、零脚本的单文件 HTML 报告。只读设计：不改配置、不试默认口令、不采集口令散列。",
   "type": "module",

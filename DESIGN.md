@@ -802,3 +802,64 @@ bash 在正常退出时会用内存里的历史回写 `.bash_history`，**把删
 3. 明文口令扫描**只覆盖** `<DM_HOME>`（排除厂商自带目录）与运行账号的 `~/.bash_history`，且只认 `disql`/`dmrman` 形态，应用配置文件里的凭据需人工核对（已写进报告的整改建议）；
 4. 单实例 `10.0.0.40` 关机中 → 单实例布局（`data/DAMENG/dm.ini`）未跑真机，但推导逻辑已按两种布局写成并用离线守卫覆盖；
 5. P3（漏洞基线库 / 与 `dm8-inspect` 合并报告）未开始。
+
+## 11. 插件代码改完为什么不生效（2026-10-14 排查记录）
+
+本节记的不是检查项，但它属于改这个插件的人迟早会撞上的一件事：`lib/` 改完、自检全绿、报告却一字未变。
+
+### 11.1 宿主加载的是安装副本，不是仓库源码
+
+`$DSH_HOME/profiles/web/package.json` 把本插件声明成依赖：
+
+    "dsh-plugin-dm-security": "github:Shiyuedong-Jade/DM-security"
+
+宿主实际 import 的是 `profiles/web/node_modules/dsh-plugin-dm-security`。往 GitHub 推提交不改变它，`pnpm-lock.yaml` 还会把当时解析到的提交号钉死在其中（形如 `codeload.github.com/.../tar.gz/<sha>`）。
+
+同步副本用宿主自带的命令（它是 pnpm 的转发器，外加一次 bundles 对账）：
+
+    dsh plugin --profile web update dsh-plugin-dm-security
+
+### 11.2 同步完仍不生效：这个 profile 没有插件代码的热重载
+
+profile 声明了 `patchReload: "live"`，容易误读成改什么都会自动重载。`live` 覆盖的只有补丁文件，也就是 `profiles/web/cordis.patch.yml` 与 home 级 patch，见 DSH README 与 `lib/profile-boot-*.js` 里装载 HMR、调用 `watchUserPatches` 的那一段。
+
+三条各自独立的原因叠在一起，使插件代码变更无法热重载：
+
+1. 该分支按需装载 `@deepseek-ai/cordis-plugin-hmr`，配置是 `{ root: [] }`。HMR 源码里 `root.length === 0` 直接判为 resolved，一个目录都不监视。
+2. 于是只剩「改补丁文件触发 recompose」这一条路，而 recompose 按条目做 diff，条目没变就不会重新 import。
+3. 即便重新 import，`profiles/web/pnpm-workspace.yaml` 里是 `nodeLinker: hoisted`，插件装在固定路径的普通目录里，更新后路径不变；Node 的 ESM 模块表按 URL 永久缓存，同一 URL 只会拿回旧模块。
+
+### 11.3 结论与验证办法
+
+插件代码变更要生效必须重启宿主进程（`dsh web`），启动器在 `<hermes>/node/dsh.cmd`。
+
+判断是否真的生效要看行为，不要看命令是否跑通。办法是传一个修复前必然被拒的输入，观察结论有没有变。本次用的就是这个办法：修复前 `sshHostKey` 传带空格的指纹必然失败，修复后同一输入主机侧 7 项正常执行。
+
+## 12. 真机补充（2026-10-14，单实例 `10.0.0.40` 与共享存储集群 `10.0.0.61` / `10.0.0.62`）
+
+### 12.1 DMDSC 上实例监听不止一个端口
+
+`os.listen_binding` 原先只判数据库端口。DMDSC 上一台主机同时有多个达梦服务在听，真机实测 `10.0.0.61`：
+
+| 端口 | 进程 | 角色 |
+|---|---|---|
+| 7236、7336 | `dmserver` | 数据库实例（含内部通信端口） |
+| 7436、7536 | `dmasmsvrm` | ASM 服务 |
+| 7936 | `dmcss` | DMDSC 集群同步 |
+| 4236 | `dmap` | 达梦助手进程 |
+
+六个端口全部绑 `*`，旧实现一条都不判。单实例上同样漏掉 `dmap`（5236 之外的那一个，实测 `10.0.0.40` 也在听）。
+
+现在探测改 `ss -lntp` 取进程名，按进程识别达梦家族的服务端一并判定，并在结论里点名各端口的角色；拿不到进程名（非 root）时退回只判数据库端口，与旧版行为一致。建议文案里原先写死的 `5236` 也一并去掉。
+
+### 12.2 二级对照下的降级项
+
+按第二级对照时，8 项判「不适用」：`auth.ip_whitelist`、`auth.login_window`、`net.session_sources`、`expo.version_patch`、`os.dm_home_perms`、`os.config_file_perms`、`mac.edition`、`mac.policy_objects`。技术结论按第三级口径保留在各条说明里，将来升级定级可直接复用。
+
+需要留意的是**审计未开启在二级同样不符合**（7.1.4.3(a)），不因降级而豁免。
+
+### 12.3 主机密钥格式缺陷的真机形状
+
+真机（`10.0.0.40`）复现：`sshHostKey` 传 `ssh-ed25519 255 SHA256:<...>` 时 plink 报 `'ssh-ed25519' is not a valid format for a manual host key specification`，主机侧 7 项全判「未取到」，而报告只写「SSH 连接失败」，看不出根因。
+
+排查时另验一步：Node 的 `spawnSync` 把完整字符串原样交给 plink 时，带空格格式与裸指纹 `SHA256:<...>` 两种 plink 都收。问题不在 plink，也不在参数传递，只在插件自己的切分逻辑。
